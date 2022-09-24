@@ -1,15 +1,15 @@
-From 5b2d66f3b8ecbf4fd43cf0917ef4bc417d07d385 Mon Sep 17 00:00:00 2001
+From c16bccf2db043c5d997265709ed887c9304ca170 Mon Sep 17 00:00:00 2001
 From: Hamza Chandad <hchandad@proton.me>
-Date: Fri, 23 Sep 2022 12:53:15 +0000
-Subject: [PATCH] test: port test/test-api.c
+Date: Sat, 24 Sep 2022 00:11:47 +0000
+Subject: [PATCH] test: port test/test-api.c v1.6.2
 
 Signed-off-by: Hamza Chandad <hchandad@proton.me>
 ---
- test/test-api.c | 425 ++++++++++++++++++++++++++----------------------
- 1 file changed, 231 insertions(+), 194 deletions(-)
+ test/test-api.c | 439 ++++++++++++++++++++++++++----------------------
+ 1 file changed, 241 insertions(+), 198 deletions(-)
 
 diff --git a/test/test-api.c b/test/test-api.c
-index 166cfca..f521902 100644
+index e5827a9..8932ada 100644
 --- a/test/test-api.c
 +++ b/test/test-api.c
 @@ -26,6 +26,8 @@ we therefore test the API over various inputs. Please add more tests :-)
@@ -21,7 +21,7 @@ index 166cfca..f521902 100644
  #ifdef __cplusplus
  #include <vector>
  #endif
-@@ -33,214 +35,249 @@ we therefore test the API over various inputs. Please add more tests :-)
+@@ -33,217 +35,258 @@ we therefore test the API over various inputs. Please add more tests :-)
  #include "mimalloc.h"
  // #include "mimalloc-internal.h"
  
@@ -81,39 +81,7 @@ index 166cfca..f521902 100644
 -    mi_free(NULL);
 -  });
 -  CHECK_BODY("calloc-overflow",{
-+// Declared as a variable,  to get a readable testsuite log
-+const int SHOULD_NOT_CRASH = 1;
-+
-+// ---------------------------------------------------
-+// Malloc
-+// ---------------------------------------------------
-+
-+UK_TESTCASE(libmimalloc_api_testsuite, malloc_zero)
-+{
-+	void *p = &p;
-+
-+	p = mi_malloc(0);
-+	UK_TEST_EXPECT(p != &p);
-+	mi_free(p);
-+
-+	UK_TEST_EXPECT(SHOULD_NOT_CRASH);
-+}
-+
-+UK_TESTCASE(libmimalloc_api_testsuite, malloc_nomem1)
-+{
-+	UK_TEST_EXPECT_PTR_EQ(mi_malloc(SIZE_MAX/2), NULL);
-+}
-+
-+UK_TESTCASE(libmimalloc_api_testsuite, malloc_null)
-+{
-+	mi_free(NULL);
-+
-+	UK_TEST_EXPECT(SHOULD_NOT_CRASH);
-+}
-+
-+UK_TESTCASE(libmimalloc_api_testsuite,  calloc_overflow)
-+{
-     // use (size_t)&mi_calloc to get some number without triggering compiler warnings
+-    // use (size_t)&mi_calloc to get some number without triggering compiler warnings
 -    result = (mi_calloc((size_t)&mi_calloc,SIZE_MAX/1000) == NULL);
 -  });
 -  CHECK_BODY("calloc0",{
@@ -176,6 +144,9 @@ index 166cfca..f521902 100644
 -    }
 -    result = ok;
 -  });
+-  CHECK_BODY("malloc-aligned5", {
+-    void* p = mi_malloc_aligned(4097,4096); size_t usable = mi_usable_size(p); result = usable >= 4097 && usable < 10000; mi_free(p);
+-  });
 -  CHECK_BODY("malloc-aligned-at1", {
 -    void* p = mi_malloc_aligned_at(48,32,0); result = (p != NULL && ((uintptr_t)(p) + 0) % 32 == 0); mi_free(p);
 -  });
@@ -219,6 +190,39 @@ index 166cfca..f521902 100644
 -                 "succeeded: %i\n"
 -                 "failed   : %i\n\n", ok, failed);
 -  return failed;
++// Declared as a variable,  to get a readable testsuite log
++const int SHOULD_NOT_CRASH = 1;
++
++// ---------------------------------------------------
++// Malloc
++// ---------------------------------------------------
++
++UK_TESTCASE(libmimalloc_api_testsuite, malloc_zero)
++{
++	void *p = &p;
++
++	p = mi_malloc(0);
++	UK_TEST_EXPECT(p != &p);
++	mi_free(p);
++
++	UK_TEST_EXPECT(SHOULD_NOT_CRASH);
++}
++
++UK_TESTCASE(libmimalloc_api_testsuite, malloc_nomem1)
++{
++	UK_TEST_EXPECT_PTR_EQ(mi_malloc(SIZE_MAX/2), NULL);
++}
++
++UK_TESTCASE(libmimalloc_api_testsuite, malloc_null)
++{
++	mi_free(NULL);
++
++	UK_TEST_EXPECT(SHOULD_NOT_CRASH);
++}
++
++UK_TESTCASE(libmimalloc_api_testsuite,  calloc_overflow)
++{
++	// use (size_t)&mi_calloc to get some number without triggering compiler warnings
 +	UK_TEST_EXPECT_PTR_EQ(
 +		mi_calloc((size_t)&mi_calloc, SIZE_MAX/1000),
 +		NULL
@@ -228,12 +232,20 @@ index 166cfca..f521902 100644
 +UK_TESTCASE(libmimalloc_api_testsuite, calloc0)
 +{
 +	UK_TEST_EXPECT(mi_usable_size(mi_calloc(0, 1000)) <= 16);
-+}
-+
-+// ---------------------------------------------------
+ }
+ 
+ // ---------------------------------------------------
+-// Larger test functions
 +// Extended
-+// ---------------------------------------------------
-+
+ // ---------------------------------------------------
+ 
+-bool test_heap1() {
+-  mi_heap_t* heap = mi_heap_new();
+-  int* p1 = mi_heap_malloc_tp(heap,int);
+-  int* p2 = mi_heap_malloc_tp(heap,int);
+-  *p1 = *p2 = 43;
+-  mi_heap_destroy(heap);
+-  return true;
 +UK_TESTCASE(libmimalloc_api_testsuite, posix_memalign1)
 +{
 +	void *p = &p;
@@ -244,8 +256,17 @@ index 166cfca..f521902 100644
 +		|| p == &p
 +	);
 +	mi_free(p);
-+}
-+
+ }
+ 
+-bool test_heap2() {
+-  mi_heap_t* heap = mi_heap_new();
+-  int* p1 = mi_heap_malloc_tp(heap,int);
+-  int* p2 = mi_heap_malloc_tp(heap,int);
+-  mi_heap_delete(heap);
+-  *p1 = 42;
+-  mi_free(p1);
+-  mi_free(p2);
+-  return true;
 +UK_TESTCASE(libmimalloc_api_testsuite, posix_memalign_no_align)
 +{
 +	void *p = &p;
@@ -332,6 +353,15 @@ index 166cfca..f521902 100644
 +	UK_TEST_EXPECT(ok);
 +}
 +
++UK_TESTCASE(libmimalloc_api_testsuite, malloc_aligned5)
++{
++	void *p = mi_malloc_aligned(4097, 4096);
++	size_t usable = mi_usable_size(p);
++
++	UK_TEST_EXPECT(usable >= 4097 && usable < 10000);
++	mi_free(p);
++}
++
 +UK_TESTCASE(libmimalloc_api_testsuite, malloc_aligned_at1)
 +{
 +	void *p = mi_malloc_aligned_at(48, 32, 0);
@@ -360,12 +390,11 @@ index 166cfca..f521902 100644
 +		ok = (p != NULL && (uintptr_t)(p) % 16 == 0); mi_free(p);
 +	}
 +	UK_TEST_EXPECT(ok);
- }
- 
- // ---------------------------------------------------
--// Larger test functions
++}
++
++// ---------------------------------------------------
 +// Heaps
- // ---------------------------------------------------
++// ---------------------------------------------------
 +UK_TESTCASE(libmimalloc_api_testsuite, heap_destroy)
 +{
 +	mi_heap_t *heap = mi_heap_new();
@@ -382,31 +411,15 @@ index 166cfca..f521902 100644
 +	mi_heap_t *heap = mi_heap_new();
 +	int *p1 = mi_heap_malloc_tp(heap, int);
 +	int *p2 = mi_heap_malloc_tp(heap, int);
- 
--bool test_heap1() {
--  mi_heap_t* heap = mi_heap_new();
--  int* p1 = mi_heap_malloc_tp(heap,int);
--  int* p2 = mi_heap_malloc_tp(heap,int);
--  *p1 = *p2 = 43;
--  mi_heap_destroy(heap);
--  return true;
++
 +	mi_heap_delete(heap);
 +	*p1 = 42;
 +	mi_free(p1);
 +	mi_free(p2);
 +
 +	UK_TEST_EXPECT(SHOULD_NOT_CRASH);
- }
- 
--bool test_heap2() {
--  mi_heap_t* heap = mi_heap_new();
--  int* p1 = mi_heap_malloc_tp(heap,int);
--  int* p2 = mi_heap_malloc_tp(heap,int);
--  mi_heap_delete(heap);
--  *p1 = 42;
--  mi_free(p1);
--  mi_free(p2);
--  return true;
++}
++
 +// ---------------------------------------------------
 +// various
 +// ---------------------------------------------------
